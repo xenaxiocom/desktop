@@ -1,12 +1,12 @@
 {
-  "name": "bulwark-desktop",
-  "productName": "Bulwark",
-  "desktopName": "bulwark.desktop",
+  "name": "xenaxio-desktop",
+  "productName": "Xenaxio",
+  "desktopName": "xenaxio.desktop",
   "version": "0.1.0",
-  "description": "Bulwark Mail for the desktop",
+  "description": "Xenaxio and XenRooms for the desktop (based on Bulwark Desktop)",
   "license": "AGPL-3.0-only",
-  "author": "Bulwark Mail",
-  "homepage": "https://bulwarkmail.org",
+  "author": "Xenaxio",
+  "homepage": "https://xenaxio.com",
   "type": "module",
   "private": true,
   "main": "dist/main.mjs",
@@ -17,12 +17,12 @@
     "start": "node build.mjs --test && node scripts/run-electron.mjs .",
     "test": "node build.mjs --test && node scripts/build-native.mjs --optional && playwright test",
     "build:native": "node scripts/build-native.mjs",
-    "pack:dir": "node build.mjs && node scripts/build-native.mjs --optional && electron-builder --dir",
+    "pack:dir": "node build.mjs && node scripts/build-native.mjs --optional && electron-builder --config scripts/xenaxio-builder-config.cjs --dir",
     "pack:test": "node scripts/pack-test.mjs",
     "pack:strict": "node scripts/pack-test.mjs --strict",
-    "dist:win": "node build.mjs && node scripts/build-native.mjs --optional && node scripts/build-nsis-splash.mjs && electron-builder --win --publish never",
-    "dist:mac": "node build.mjs && node scripts/build-native.mjs --optional && electron-builder --mac --publish never",
-    "dist:linux": "node build.mjs && node scripts/build-native.mjs --optional && electron-builder --linux --publish never"
+    "dist:win": "node build.mjs && node scripts/build-native.mjs --optional && node scripts/build-nsis-splash.mjs && electron-builder --config scripts/xenaxio-builder-config.cjs --win --publish never",
+    "dist:mac": "node build.mjs && node scripts/build-native.mjs --optional && electron-builder --config scripts/xenaxio-builder-config.cjs --mac --publish never",
+    "dist:linux": "node build.mjs && node scripts/build-native.mjs --optional && electron-builder --config scripts/xenaxio-builder-config.cjs --linux --publish never"
   },
   "config": {
     "webmailTag": "1.21.0"

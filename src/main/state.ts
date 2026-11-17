@@ -87,6 +87,8 @@ export interface ShellState {
   restoreAttempts?: number;
   /** The main window's page when the computer restarted, with "Open again after a restart" on. */
   resumeAfterRestart?: ResumeMark;
+  /** xenaxio: the portal link to open once after a hop to it (src/shared/product.ts). */
+  xenaxioHop?: { origin: string; url: string; at: number };
   /** When a pop-out last opened: whether a warm spare is worth its memory. */
   lastPopoutAt?: number;
   /** Chromium's zoom level: 0 is 100%. */

@@ -53,6 +53,7 @@ import { ServerRegistry } from './servers';
 import { StateFile } from './state';
 import { strings, uiLanguageNow, unsentDetail } from './strings';
 import { checkInstance } from './instance-check';
+import { hopUrlFrom, portalHop, PRODUCT } from '../shared/product';
 import { useWelcomeMenu } from './welcome-menu';
 import { changeConnectionUrl, loadErrorPage, noteLoadErrorPage, retryTarget, showsLoadError } from './load-error';
 import { leaveLaunchFolder } from './launch-folder';
@@ -135,8 +136,9 @@ if (__BULWARK_TEST_PROFILE__) app.setPath('userData', __BULWARK_TEST_PROFILE__);
 leaveLaunchFolder(app.getPath('userData'));
 
 app.setName('Bulwark');
-const ABOUT_COPYRIGHT = 'AGPL-3.0-only';
-app.setAboutPanelOptions({ applicationName: 'Bulwark', applicationVersion: app.getVersion(), copyright: ABOUT_COPYRIGHT, website: 'https://bulwarkmail.org' });
+// xenaxio: the source of this program (AGPL) and what it is based on.
+const ABOUT_COPYRIGHT = PRODUCT ? 'AGPL-3.0-only. Based on Bulwark Desktop. Source: https://github.com/xenaxiocom/desktop' : 'AGPL-3.0-only';
+app.setAboutPanelOptions({ applicationName: 'Bulwark', applicationVersion: app.getVersion(), copyright: ABOUT_COPYRIGHT, website: PRODUCT?.site ?? 'https://bulwarkmail.org' });
 if (process.platform === 'win32') {
   // A test build, a package with its profile baked in for the tests, and a folder no installer
   // put there keep off the user's jump list, taskbar group and notifications.
@@ -289,7 +291,7 @@ function watchForFailedLoads(window: BrowserWindow, origin: string, startUrl: st
 }
 
 function createWindowManager(mode: Mode, origin: string, session: Electron.Session, theme: ThemeController, startUrl: string): WindowManager {
-  const guard: GuardOptions = { mode, origin, windows: () => windowManager!, forced: () => policies.snapshot.InstanceUrl.locked };
+  const guard: GuardOptions = { mode, origin, windows: () => windowManager!, forced: () => policies.snapshot.InstanceUrl.locked, portalHop: (target) => hopToPortal(origin, target) };
   windowManager = new WindowManager({
     state: stateFile,
     theme,
@@ -633,7 +635,33 @@ async function bootInstance(instanceUrl: string, theme: ThemeController): Promis
   setupFeatures(ctx);
   windows.on('created', ({ window }) => watchForFailedLoads(window, origin, instanceUrl));
   mainWindowAllowed = true;
-  windows.open({ type: 'main', url: takeResumeUrl(stateFile, 'instance', origin, Date.now()) ?? instanceUrl });
+  windows.open({ type: 'main', url: takeHopUrl(origin) ?? takeResumeUrl(stateFile, 'instance', origin, Date.now()) ?? instanceUrl });
+}
+
+/**
+ * xenaxio: the sign-in on app.xenaxio.com handed the session to the company's portal. The
+ * portal becomes this app's server and the app starts again on the hand-off link, once.
+ * Not when an admin's policy forces the server.
+ */
+function hopToPortal(origin: string, target: URL): boolean {
+  if (policies.snapshot.InstanceUrl.locked) return false;
+  const portal = portalHop(origin, target);
+  if (!portal || !jmapServerAllowed(policies.snapshot.AllowedJmapServers.value, portal)) return false;
+  stateFile.data.mode = 'instance';
+  stateFile.data.instanceUrl = `${portal}/`;
+  stateFile.data.xenaxioHop = { origin: portal, url: target.href, at: Date.now() };
+  stateFile.save();
+  restartNow();
+  return true;
+}
+
+/** The hand-off link of a hop, for this start only. */
+function takeHopUrl(origin: string): string | null {
+  const mark = stateFile.data.xenaxioHop;
+  if (mark === undefined) return null;
+  delete stateFile.data.xenaxioHop;
+  stateFile.save();
+  return hopUrlFrom(mark, origin, Date.now());
 }
 
 /** The first-run window's width; its height follows the page's card. */
