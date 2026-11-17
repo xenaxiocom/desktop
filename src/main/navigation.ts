@@ -57,6 +57,11 @@ export interface GuardOptions {
   windows: () => WindowManager;
   /** The server is forced: a sign-in chain gets a time limit. */
   forced?: () => boolean;
+  /**
+   * xenaxio: the platform handed the sign-in to the company's portal (src/shared/product.ts,
+   * portalHop). True when main takes the window there; the navigation stops here.
+   */
+  portalHop?: (target: URL) => boolean;
 }
 
 /**
@@ -190,6 +195,7 @@ function guardNavigation(contents: WebContents, options: GuardOptions, signIn = 
     const target = parse(url);
     if (target && allowed(target)) return;
     event.preventDefault();
+    if (target && mode === 'instance' && options.portalHop?.(target)) return;
     if (!target || (sameOrigin(target, origin) && isJmapProxyPath(target.pathname))) return;
     openExternally(url, contents, origin);
     // The webmail set a flag before leaving for the provider's logout page, so

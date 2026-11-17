@@ -986,6 +986,7 @@ export class WindowManager extends EventEmitter<{
     else delete state.data.session;
     delete state.data.restoreAttempts;
     if (state.data.resumeAfterRestart && wipeCovers(origin, state.data.resumeAfterRestart.origin)) delete state.data.resumeAfterRestart;
+    if (state.data.xenaxioHop && wipeCovers(origin, state.data.xenaxioHop.origin)) delete state.data.xenaxioHop;
     state.save();
   }
 

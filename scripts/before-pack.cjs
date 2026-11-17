@@ -13,6 +13,8 @@ exports.default = async function beforePack(context) {
     const target = path.join(projectDir, 'node_modules', '@vscode', 'policy-watcher', 'build', 'Release');
     for (const file of readdirSync(built)) cpSync(path.join(built, file), path.join(target, file));
   }
+  // xenaxio: no webmail server inside: the products run only on the platform (src/shared/product.ts).
+  if (process.env.XENAXIO_NO_SERVER === '1') return;
   const { buildServerArchive } = await import('./server-archive.mjs');
   const { trim, codeCache } = await buildServerArchive({
     projectDir: context.packager.projectDir,
