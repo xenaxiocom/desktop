@@ -40,7 +40,7 @@ function config(env = process.env) {
   process.env.XENAXIO_PRODUCT = product.id;
   base.extraResources = (base.extraResources ?? []).filter((r) => typeof r === 'string' || (r.from !== 'policies' && !String(r.from).startsWith('.server-build')));
   base.productName = product.name;
-  base.publish = { ...base.publish, provider: 'github', owner: 'xenaxiocom', repo: 'desktop' };
+  base.publish = { ...base.publish, provider: 'github', owner: 'xenaxiocom', repo: 'desktop', ...(product.id === 'xenrooms' ? { channel: 'xenrooms' } : {}) };
   if (base.msi) base.msi.upgradeCode = product.msiUpgradeCode;
   if (base.mac?.protocols) {
     base.mac.protocols = base.mac.protocols.map((p) => (Array.isArray(p.schemes) && p.schemes.includes('bulwark') ? { name: product.name, schemes: [product.scheme] } : p));
