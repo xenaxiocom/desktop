@@ -74,6 +74,7 @@ declare const __BULWARK_UPDATER_TEST__: boolean;
 const FIRST_CHECK_MS = 30_000;
 const CHECK_EVERY_MS = 4 * 3600_000;
 const ABANDON_WAIT_MS = 10_000;
+import { PRODUCT } from '../../shared/product';
 const OWNER = 'bulwarkmail';
 const REPO = 'desktop';
 const RELEASES_URL = `https://github.com/${OWNER}/${REPO}/releases`;
@@ -478,6 +479,8 @@ class Updater {
     updater.allowPrerelease = channel === 'beta';
     // Lets an older stable release reach `judgeFeedVersion`. Nothing downloads on its own.
     updater.allowDowngrade = true;
+    // xenaxio: XenRooms has its own feed file in the shared release (src/shared/product.ts).
+    if (PRODUCT?.updateFile) updater.channel = PRODUCT.updateFile;
     this.setStatus('checking');
     try {
       await this.pointFeed(updater, channel);

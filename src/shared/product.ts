@@ -36,6 +36,12 @@ export interface ProductInfo {
    * step 17): https and these only. Null: none.
    */
   portalHost: RegExp | null;
+  /**
+   * The update feed's file in each release (electron-updater's channel): both programs publish
+   * into the same GitHub release, so XenRooms reads xenrooms*.yml and Xenaxio Bulwark's own
+   * latest*.yml. Null: electron-updater's default.
+   */
+  updateFile: string | null;
 }
 
 const PRODUCTS: Record<ProductId, ProductInfo> = {
@@ -46,6 +52,7 @@ const PRODUCTS: Record<ProductId, ProductInfo> = {
     urlLocked: false,
     site: 'https://xenaxio.com',
     portalHost: /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)xenaxio\.com$/,
+    updateFile: null,
   },
   xenrooms: {
     id: 'xenrooms',
@@ -54,6 +61,7 @@ const PRODUCTS: Record<ProductId, ProductInfo> = {
     urlLocked: true,
     site: 'https://xenrooms.com',
     portalHost: null,
+    updateFile: 'xenrooms',
   },
 };
 

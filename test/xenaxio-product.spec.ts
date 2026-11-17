@@ -92,11 +92,13 @@ test.describe('build-time names', () => {
       "title: 'XenRooms', a: 'Vraťte se do XenRooms', b: window.bulwarkDesktop, c: 'bulwark:menu.popup', d: looksLikeBulwarkConfig, e: 'https://xenrooms.com'",
     );
     expect(brandSource("DEEP_LINK_SCHEME = 'bulwark'", 'src/main/deep-link.ts', product)).toBe("DEEP_LINK_SCHEME = 'xenrooms'");
+    expect(brandSource("const OWNER = 'bulwarkmail';", 'src/main/features/updater.ts', product)).toBe("const OWNER = 'xenaxiocom';");
     expect(brandSource(text, 'src/main/strings.ts', null)).toBe(text);
   });
 
   test('every place the scheme and policy names are rewritten still exists upstream', () => {
     // When upstream renames one of these, the build would quietly keep Bulwark's: this says so.
+    expect(readFileSync('src/main/features/updater.ts', 'utf8')).toContain("const OWNER = 'bulwarkmail';");
     expect(readFileSync('src/main/deep-link.ts', 'utf8')).toContain("DEEP_LINK_SCHEME = 'bulwark'");
     expect(readFileSync('src/main/features/os-default-app.ts', 'utf8')).toContain("app.setAsDefaultProtocolClient('bulwark')");
     expect(readFileSync('src/main/features/os-rules.ts', 'utf8')).toMatch(/progId\('bulwark',/);
@@ -122,6 +124,7 @@ test.describe('packaging', () => {
       expect(JSON.stringify(config.extraResources)).not.toContain('server');
       expect(JSON.stringify(config)).not.toMatch(/\bBulwark(?! Project Authors)\b/);
       if (id === 'xenrooms') expect(JSON.stringify(config.mac.protocols)).not.toContain('mailto');
+      expect(config.publish.channel).toBe(id === 'xenrooms' ? 'xenrooms' : undefined);
     });
   }
 });

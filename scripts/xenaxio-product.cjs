@@ -58,6 +58,10 @@ function brandSource(text, file, product) {
   if (normal.endsWith('src/shared/policy-schema.ts')) {
     out = out.replace(/org\.bulwarkmail\.desktop/g, product.appId).replace(/\/etc\/bulwark\//g, `/etc/${product.id}/`);
   }
+  if (normal.endsWith('src/main/features/updater.ts')) {
+    // Updates come from Xenaxio's releases, never from Bulwark's.
+    out = out.replace("const OWNER = 'bulwarkmail';", "const OWNER = 'xenaxiocom';");
+  }
   if (normal.endsWith('src/main/deep-link.ts')) {
     out = out.replace("DEEP_LINK_SCHEME = 'bulwark'", `DEEP_LINK_SCHEME = '${product.scheme}'`);
   }
