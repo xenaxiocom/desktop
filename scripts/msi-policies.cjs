@@ -17,7 +17,10 @@
 // them. A real uninstall removes them: MSI wrote them, so it takes them back. Values set
 // by Group Policy live in the same place and come back at its next refresh.
 
-const FORCED = 'SOFTWARE\\Policies\\Bulwark\\Desktop';
+// xenaxio: the product's policy key (src/shared/policy-schema.ts is branded the same way).
+// Set by scripts/xenaxio-builder-config.cjs; without it (upstream's tests) Bulwark's key.
+const XENAXIO_PRODUCT = process.env.XENAXIO_PRODUCT ? require('./xenaxio-product.cjs').productFor(process.env, false) : null;
+const FORCED = `SOFTWARE\\Policies\\${XENAXIO_PRODUCT ? XENAXIO_PRODUCT.name : 'Bulwark'}\\Desktop`;
 const RECOMMENDED = `${FORCED}\\Recommended`;
 
 // GUIDs are fixed forever: a component's GUID is how Windows Installer knows it.

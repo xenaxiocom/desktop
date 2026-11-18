@@ -19,6 +19,7 @@ import { app, ipcMain, systemPreferences, type CommandLine, type Session } from 
 import { CHANNEL } from '../../shared/bridge';
 import {
   DEFAULT_POLICY_SNAPSHOT,
+  EMPTY_POLICY_LAYERS,
   POLICY_BUNDLE_ID,
   POLICY_LINUX_FILE,
   POLICY_MAX_FILE_BYTES,
@@ -32,6 +33,7 @@ import {
   type PolicySnapshot,
   type ServerPolicy,
 } from '../../shared/policy-schema';
+import { PRODUCT, withProductPolicies } from '../../shared/product';
 import { NO_INTEGRATED_SIGN_IN } from '../client-auth';
 import { senderAllowed } from '../ipc';
 import type { PluginPolicyCheck } from '../plugins';
@@ -138,7 +140,8 @@ export interface PolicyEvents {
 }
 
 export class PolicyManager extends EventEmitter<PolicyEvents> {
-  snapshot: PolicySnapshot = DEFAULT_POLICY_SNAPSHOT;
+  // xenaxio: the product's own policies under the admin's (src/shared/product.ts).
+  snapshot: PolicySnapshot = PRODUCT ? resolvePolicies(withProductPolicies(EMPTY_POLICY_LAYERS)) : DEFAULT_POLICY_SNAPSHOT;
   /** The source itself can't be trusted or read. The app stops with an error page. */
   problem: PolicySourceProblem | null = null;
 
@@ -199,7 +202,7 @@ export class PolicyManager extends EventEmitter<PolicyEvents> {
       }
       const hadProblem = this.problem !== null;
       this.problem = null;
-      const next = resolvePolicies(read.layers);
+      const next = resolvePolicies(withProductPolicies(read.layers));
       const same = JSON.stringify(next) === JSON.stringify(previous);
       if (!same) {
         this.snapshot = next;

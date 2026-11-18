@@ -144,7 +144,10 @@ const READERS = {
 export function verifyPackage(file) {
   const reader = READERS[path.extname(file).toLowerCase()];
   if (!reader) throw new Error(`${file}: no reader for this kind of package`);
-  return findBadEntries(reader.read(file), REQUIRED[reader.kind]);
+  // xenaxio: Xenaxio-… and XenRooms-… packages carry their own program name where Bulwark's has its.
+  const name = /^(Xenaxio|XenRooms)-/.exec(path.basename(file))?.[1];
+  const required = REQUIRED[reader.kind];
+  return findBadEntries(reader.read(file), name ? { ...required, suffix: required.suffix.replace(/Bulwark/g, name) } : required);
 }
 
 function main(dir) {

@@ -1,5 +1,12 @@
 name: Release
 
+# xenaxio: every run builds both programs, Xenaxio and XenRooms (scripts/xenaxio-product.cjs),
+# into one release of xenaxiocom/desktop: Xenaxio-… and XenRooms-… files, and the update feeds
+# latest*.yml (Xenaxio) and xenrooms*.yml (XenRooms). Neither packs the webmail server; the
+# webmail is still built here for the test pack (scripts/pack-test.mjs), which is Bulwark's.
+# Windows signing needs the AZURE_* secrets and the variables AZURE_SIGNING_ACCOUNT,
+# AZURE_SIGNING_PROFILE and WINDOWS_PUBLISHER; macOS the MAC_* and APPLE_* secrets.
+
 # Every push to main publishes a beta: <version in package.json>-beta.<run number>, built from
 # a clean checkout, with the webmail built from its main at the one commit `prepare` read. A
 # tag v<version> is a release: the same, with the webmail built from the tag in package.json
@@ -9,7 +16,7 @@ name: Release
 # The build jobs hold no write token. The release job runs no checked-out code. It makes a
 # draft, uploads every file with a `.sha256` next to it, signs a build provenance attestation
 # and only then publishes, so electron-updater never sees a half-filled release:
-# `gh attestation verify <file> --repo bulwarkmail/desktop`.
+# `gh attestation verify <file> --repo xenaxiocom/desktop`.
 #
 # Signing: Windows signs every build through Azure Artifact Signing when the repository has
 # the AZURE_* secrets, and is unsigned otherwise (see the windows job). macOS signs with the
@@ -184,7 +191,7 @@ jobs:
       - name: Build the installer window
         run: node scripts/build-nsis-splash.mjs
 
-      # With the secrets: signed through Azure Artifact Signing as "Rath & Blume GbR", and
+      # With the secrets: signed through Azure Artifact Signing as vars.WINDOWS_PUBLISHER, and
       # app-update.yml names that publisher, so an install refuses any later installer that
       # isn't signed by it. That's why betas are signed too: a signed stable copy that moves to
       # beta would refuse an unsigned one. Without the secrets: unsigned, as before. The
@@ -196,35 +203,44 @@ jobs:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          # xenaxio: the Artifact Signing account, profile and publisher, as repository variables.
+          SIGNING_ACCOUNT: ${{ vars.AZURE_SIGNING_ACCOUNT }}
+          SIGNING_PROFILE: ${{ vars.AZURE_SIGNING_PROFILE }}
+          PUBLISHER: ${{ vars.WINDOWS_PUBLISHER }}
         run: |
           signing=()
           if [ -n "$AZURE_CLIENT_SECRET" ]; then
             signing=(
               -c.win.azureSignOptions.endpoint=https://plc.codesigning.azure.net/
-              -c.win.azureSignOptions.codeSigningAccountName=Bulwark
-              -c.win.azureSignOptions.certificateProfileName=bulwark-desktop
-              "-c.win.azureSignOptions.publisherName=Rath & Blume GbR"
+              "-c.win.azureSignOptions.codeSigningAccountName=$SIGNING_ACCOUNT"
+              "-c.win.azureSignOptions.certificateProfileName=$SIGNING_PROFILE"
+              "-c.win.azureSignOptions.publisherName=$PUBLISHER"
             )
           else
             unset AZURE_TENANT_ID AZURE_CLIENT_ID AZURE_CLIENT_SECRET
           fi
-          npx electron-builder --win --x64 --arm64 --publish never "${signing[@]}"
+          # xenaxio: both programs, each with its own shell build (scripts/xenaxio-product.cjs).
+          for product in xenaxio xenrooms; do
+            XENAXIO_PRODUCT=$product node build.mjs
+            XENAXIO_PRODUCT=$product npx electron-builder --config scripts/xenaxio-builder-config.cjs --win --x64 --arm64 --publish never "${signing[@]}"
+          done
 
       # Every exe and msi has to carry a valid signature by the publisher, or none of them may.
       - name: Check the signatures
         shell: pwsh
         env:
           SIGNED: ${{ secrets.AZURE_CLIENT_SECRET != '' }}
+          PUBLISHER: ${{ vars.WINDOWS_PUBLISHER }}
         run: |
           $bad = 0
           Get-ChildItem release\* -Include *.exe,*.msi | ForEach-Object {
             $s = Get-AuthenticodeSignature $_.FullName
             Write-Host "$($_.Name): $($s.Status) $($s.SignerCertificate.Subject)"
             if ($env:SIGNED -eq 'true') {
-              if ($s.Status -ne 'Valid' -or $s.SignerCertificate.Subject -notmatch '^CN="?Rath & Blume GbR') { $bad++ }
+              if ($s.Status -ne 'Valid' -or $s.SignerCertificate.Subject -notmatch ('^CN="?' + [regex]::Escape($env:PUBLISHER))) { $bad++ }
             }
           }
-          if ($bad) { throw "$bad file(s) without a valid Rath & Blume GbR signature" }
+          if ($bad) { throw "$bad file(s) without a valid signature by $env:PUBLISHER" }
 
       # The blockmaps let an update download only the blocks of the installer that changed:
       # electron-updater fetches the new one and the one of the version it runs.
@@ -354,7 +370,11 @@ jobs:
             printf '%s' "$APPLE_API_KEY_BASE64" | base64 --decode > "$APPLE_API_KEY"
           fi
           unset APPLE_API_KEY_BASE64 MAC_CERTIFICATE MAC_CERTIFICATE_PASSWORD
-          npx electron-builder --mac --universal --publish never "${signing[@]}"
+          # xenaxio: both programs, each with its own shell build (scripts/xenaxio-product.cjs).
+          for product in xenaxio xenrooms; do
+            XENAXIO_PRODUCT=$product node build.mjs
+            XENAXIO_PRODUCT=$product npx electron-builder --config scripts/xenaxio-builder-config.cjs --mac --universal --publish never "${signing[@]}"
+          done
 
       # A signed build must carry a valid Developer ID signature and a stapled notarization
       # ticket, so Gatekeeper accepts it offline. An ad-hoc build only needs a valid signature.
@@ -362,14 +382,16 @@ jobs:
         env:
           SIGNED: ${{ secrets.MAC_CERTIFICATE != '' }}
         run: |
-          app="$(ls -d release/mac-universal/*.app | head -n 1)"
-          codesign --verify --deep --strict --verbose=2 "$app"
-          codesign -dv --verbose=2 "$app" 2>&1 | grep -E '^(Authority|TeamIdentifier|Runtime)' || true
-          if [ "$SIGNED" = true ]; then
-            codesign -dv --verbose=2 "$app" 2>&1 | grep -q '^Authority=Developer ID Application: '
-            xcrun stapler validate "$app"
-            spctl --assess --type execute --verbose=2 "$app"
-          fi
+          # xenaxio: Xenaxio.app and XenRooms.app.
+          for app in release/mac-universal/*.app; do
+            codesign --verify --deep --strict --verbose=2 "$app"
+            codesign -dv --verbose=2 "$app" 2>&1 | grep -E '^(Authority|TeamIdentifier|Runtime)' || true
+            if [ "$SIGNED" = true ]; then
+              codesign -dv --verbose=2 "$app" 2>&1 | grep -q '^Authority=Developer ID Application: '
+              xcrun stapler validate "$app"
+              spctl --assess --type execute --verbose=2 "$app"
+            fi
+          done
 
       - name: Check the file modes in the packages
         run: node scripts/verify-package-modes.mjs release
@@ -473,7 +495,12 @@ jobs:
       - name: Build installers
         env:
           ARCH: ${{ matrix.arch }}
-        run: npx electron-builder --linux "--$ARCH" --publish never
+        # xenaxio: both programs, each with its own shell build (scripts/xenaxio-product.cjs).
+        run: |
+          for product in xenaxio xenrooms; do
+            XENAXIO_PRODUCT=$product node build.mjs
+            XENAXIO_PRODUCT=$product npx electron-builder --config scripts/xenaxio-builder-config.cjs --linux "--$ARCH" --publish never
+          done
 
       # after-pack checks the tree, and fpm and the others run after that.
       - name: Check the file modes in the packages
@@ -582,7 +609,7 @@ jobs:
             case "$VERSION" in
               *-*)
                 if [ "$SIGNED_WIN" = true ] && [ "$SIGNED_MAC" = true ]; then
-                  echo 'This is a beta. The Windows installers are signed by Rath & Blume GbR, and the macOS app is signed with its Developer ID and notarized by Apple. The Linux packages are not signed. If you installed an unsigned macOS beta before, download this one once by hand: an unsigned build cannot update itself to a signed one.'
+                  echo 'This is a beta. The Windows installers are signed by the publisher named in the release, and the macOS app is signed with its Developer ID and notarized by Apple. The Linux packages are not signed. If you installed an unsigned macOS beta before, download this one once by hand: an unsigned build cannot update itself to a signed one.'
                 else
                   echo 'This is a beta, and not every build is signed. An unsigned Windows installer gets "Windows protected your PC" from SmartScreen: choose More info, then Run anyway. An unsigned macOS app needs System Settings > Privacy & Security > Open Anyway the first time.'
                 fi
@@ -650,6 +677,6 @@ jobs:
           case "$VERSION" in
             *-*) flags+=(--prerelease --latest=false) ;;
           esac
-          gh release create "$tag" --draft --target "$SHA" --title "Bulwark $VERSION" --notes-file "$RUNNER_TEMP/notes.md" "${flags[@]}"
+          gh release create "$tag" --draft --target "$SHA" --title "Xenaxio $VERSION" --notes-file "$RUNNER_TEMP/notes.md" "${flags[@]}"
           gh release upload "$tag" release/* --clobber
           gh release edit "$tag" --draft=false "${flags[@]}"

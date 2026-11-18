@@ -27,10 +27,12 @@ exports.default = async function afterPack(context) {
   // With `electronDist` (the tests, to stay off the network) Electron's sample app comes along.
   rmSync(path.join(resources, 'default_app.asar'), { force: true });
 
-  if (!existsSync(path.join(resources, 'server.asar'))) throw new Error('server.asar did not reach the package');
+  // xenaxio: no webmail server inside (scripts/xenaxio-builder-config.cjs).
+  const withServer = process.env.XENAXIO_NO_SERVER !== '1';
+  if (withServer && !existsSync(path.join(resources, 'server.asar'))) throw new Error('server.asar did not reach the package');
   // A universal build runs this a last time on the merge of two trees that already went through
   // here. No beforePack ran for it, so it has no archive of its own, and needs none.
-  if (ARCH[context.arch] !== 'universal') {
+  if (withServer && ARCH[context.arch] !== 'universal') {
     const { archiveDir } = await import('./server-archive.mjs');
     const built = archiveDir(projectDir, context.electronPlatformName, ARCH[context.arch] ?? 'x64');
     if (!existsSync(path.join(built, 'server.asar'))) throw new Error(`before-pack built no server archive in ${built}, so server.asar.unpacked has nothing to come from`);

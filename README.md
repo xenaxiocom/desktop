@@ -1,3 +1,31 @@
+# Xenaxio and XenRooms for the desktop
+
+This repository is Xenaxio's fork of [Bulwark Desktop](https://github.com/bulwarkmail/desktop) (AGPL-3.0-only, see LICENSE). One shell builds two programs, chosen with `XENAXIO_PRODUCT`:
+
+| `XENAXIO_PRODUCT` | Program | Opens | App id |
+|---|---|---|---|
+| `xenaxio` (default) | Xenaxio | `app.xenaxio.com`; a sign-in there moves the app to the company portal (`<company>.xenaxio.com`); File → Change connection for an own domain or an on-premise server | `com.xenaxio.desktop` |
+| `xenrooms` | XenRooms | always `xenrooms.app`, which switches between the companies itself | `com.xenaxio.xenrooms` |
+
+What differs from Bulwark:
+
+- **Only "instance" mode.** The Xenaxio web client works only with the Xenaxio platform, so standalone mode (a webmail server inside the app) is off and no server is packaged. The product's settings are built-in policies under the admin's (`src/shared/product.ts`): an admin's `InstanceUrl` still wins, for on-premise customers.
+- **No telemetry, no crash reports to Bulwark.** Forced off by the same built-in policies.
+- **Names.** `build.mjs` puts the product's name, site and URL scheme (`xenaxio://`, `xenrooms://`) into the shell's text at build time (`scripts/xenaxio-product.cjs`), so Bulwark's files stay as upstream has them. The bridge to the page keeps Bulwark's names (`window.bulwarkDesktop`): the Xenaxio web client is a Bulwark webmail.
+- **Packaging.** `scripts/xenaxio-builder-config.cjs` makes electron-builder's configuration from `electron-builder.yml`: app id, name, installer, MSI upgrade code, update feed (`xenaxiocom/desktop` releases). The npm `pack:dir` and `dist:*` scripts use it.
+- **Icons.** `node scripts/xenaxio-icons.mjs --any <webmail>/public/xenrooms/icon-512.png --mac <webmail>/public/xenrooms/icon-maskable-512.png --webmail <webmail>` (one mark for both programs).
+
+```sh
+npm ci
+XENAXIO_PRODUCT=xenrooms npm run dist:linux     # or dist:win, dist:mac; Xenaxio without the variable
+```
+
+Plain `node build.mjs --test` (what `npm test` uses) stays Bulwark, so upstream's tests keep their meaning; `test/xenaxio-product.spec.ts` covers ours. Keep changes to Bulwark's files small and marked `xenaxio:`, so upstream merges stay easy.
+
+The plan for these apps is in the Xenaxio platform repository (`docs/plan.md`, step 150).
+
+---
+
 # Bulwark Desktop
 
 The Bulwark desktop app: a thin Electron shell around the webmail. Most of the code lives in the webmail. This repo has the main process, the preload bridge, the server host and packaging.

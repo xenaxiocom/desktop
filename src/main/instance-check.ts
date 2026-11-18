@@ -8,6 +8,8 @@
  * same proxy and certificate checks, and plain Node tests can reach it.
  */
 
+import { PRODUCT, type ProductInfo } from '../shared/product';
+
 export type InstanceCheck = { ok: true } | { ok: false; error: 'unreachable' | 'not_bulwark' };
 
 export type CheckFetch = (url: string, init: { signal: AbortSignal; headers: Record<string, string> }) => Promise<Response>;
@@ -32,11 +34,17 @@ export function looksLikeBulwarkConfig(body: unknown): boolean {
  * Where to ask: next to the address, for a webmail under a path, then at the root of its site.
  * The address comes from parseWelcomeAddress, so it ends in a slash.
  */
-export function configUrls(instanceUrl: string): string[] {
+export function configUrls(instanceUrl: string, product: ProductInfo | null = PRODUCT): string[] {
   const base = new URL(instanceUrl);
   const nearby = new URL('api/config', base).toString();
   const root = new URL('/api/config', base.origin).toString();
-  return nearby === root ? [root] : [nearby, root];
+  const urls = nearby === root ? [root] : [nearby, root];
+  // xenaxio: the Xenaxio client is the static (Lite) build, whose config is /config.json;
+  // /api belongs to the platform. Asked after Bulwark's own places.
+  const liteNearby = new URL('config.json', base).toString();
+  const liteRoot = new URL('/config.json', base.origin).toString();
+  if (!product) return urls;
+  return [...urls, ...(liteNearby === liteRoot ? [liteRoot] : [liteNearby, liteRoot])];
 }
 
 type Answer = 'bulwark' | 'other' | 'gated';
